@@ -3,7 +3,7 @@ var geo_update_timer, geo_pending, geo_pos;
 var timeline_token;
 var did_subscribe = false;
 
-var api_host = "https://qibla-www.cpfx.ca";
+var api_host = "https://pebble-qibla-www-production.up.railway.app";
 
 var am_send_ok = function(){
 };
@@ -21,6 +21,7 @@ var timeline_subscribe = function() {
     if (!geo_pos || (!timeline_token && Pebble.getTimelineToken)) {
       return; // Not ready to subscribe yet.
     }
+    console.log('Timeline token', timeline_token);
     if (did_subscribe) return;
     did_subscribe = true;
     var req = new XMLHttpRequest();
@@ -76,10 +77,20 @@ var app_startup = function(){
     request_geo();
 };
 
-var watchapp_alive = function(){
+var watchapp_alive = function(e){
     console.log("Watchapp is alive");
     // The watchapp acks a settings update - so we can stop sending them
     clearInterval(geo_update_timer);
+
+    const { payload: dict } = e;
+    console.log(`appmessage: ${JSON.stringify(dict)}`);
+
+    try {
+      if (dict.PUSH_PIN) handlePushTimelinePin(dict);
+    } catch (e) {
+      console.log('Failed to handle message');
+      console.log(e);
+    }
 };
 
 var show_config = function(){
@@ -91,9 +102,11 @@ Pebble.addEventListener("appmessage", watchapp_alive);
 Pebble.addEventListener('showConfiguration', show_config);
 
 if (Pebble.getTimelineToken) {
+  console.log('Getting timeline token');
   Pebble.getTimelineToken(
     function (token) {
       timeline_token = token;
+      console.log('Timeline token callback', timeline_token);
       timeline_subscribe();
     },
     function (error) {
