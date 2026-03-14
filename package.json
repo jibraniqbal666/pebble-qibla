@@ -1,0 +1,36 @@
+{
+  "name": "pebble-qibla",
+  "author": "MakeAwesomeHappen",
+  "version": "2.7.0",
+  "private": true,
+  "keywords": ["pebble-app"],
+  "pebble": {
+    "sdkVersion": "3",
+    "targetPlatforms": ["aplite", "basalt", "chalk", "diorite", "emery", "flint"],
+    "enableMultiJS": true,
+    "capabilities": ["location", "configurable"],
+    "projectType": "native",
+    "displayName": "Qibla",
+    "uuid": "0ab110ef-2e42-48c0-8f1d-cc9197a2d726",
+    "watchapp": {
+      "watchface": false,
+      "hiddenApp": false,
+      "onlyShownOnCommunication": false
+    },
+    "resources": {
+      "media": [
+        { "type": "png-trans", "name": "IMAGE_KAABA", "file": "images/kaaba.png" },
+        { "type": "png", "name": "IMAGE_KAABA_MENUICON", "file": "images/kaaba_icon.png", "menuIcon": true }
+      ]
+    },
+    "messageKeys": ["AM_GEO_LAT", "AM_GEO_LON", "AM_GEO_NAME", "AM_ACK", "PUSH_PIN"]
+  },
+  "scripts": {
+    "build": "pkts build"
+  },
+  "devDependencies": {
+    "pkts": "^0.3.0-beta.1",
+    "tsc": "^2.0.4",
+    "typescript": "^5.9.3"
+  }
+}

@@ -202,13 +202,6 @@ static int calculate_qibla_north_cw_offset(int lat, int lon) {
 
   int result = atan2_lookup((int16_t)(numerator/4), (int16_t)(denominator/4));
 
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Qibla offset %d, %d", result, (result * 360) / TRIG_MAX_ANGLE);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Numerator raw %d, %d", (kaaba_lon - lon), ((kaaba_lon - lon) * 360) / TRIG_MAX_ANGLE);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Numerator proc %d, %d*10^-2", (numerator), ((numerator) * 100) / TRIG_MAX_RATIO);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Denom a proc %ld, %ld*10^-2", (denom_a), ((denom_a) * 100) / TRIG_MAX_RATIO);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Denom b proc %ld, %ld*10^-2", (denom_b), ((denom_b) * 100) / TRIG_MAX_RATIO);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "Denom proc %ld, %ld*10^-2", (denominator), ((denominator) * 100) / TRIG_MAX_RATIO);
-
   return result;
 }
 
@@ -230,7 +223,6 @@ static void update_indicator_directions_animated(void) {
 
   damped_north_direction +=  delta * (progress / damping_factor_1 + progress * progress / MAX_PROGRESS / damping_factor_2) / MAX_PROGRESS;
   damped_qibla_direction = damped_north_direction - qibla_north_offset_cw;
-  // Prevent these from going wildly out of range
   wrap_angle(&damped_north_direction);
   wrap_angle(&damped_qibla_direction);
 
@@ -328,20 +320,15 @@ static void persist_settings(void) {
   } else {
     persist_delete(AM_GEO_NAME);
   }
-
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "SETTINGS DST=%d LAT=%d LON=%d", setting_dst, setting_geo_lat, setting_geo_lon);
-  // APP_LOG(APP_LOG_LEVEL_DEBUG, "OR DST=%d LAT=%d LON=%d", setting_dst, setting_geo_lat * 360 / TRIG_MAX_ANGLE, setting_geo_lon * 360 / TRIG_MAX_ANGLE);
 }
 
 static void in_received_handler(DictionaryIterator *received, void *context) {
   Tuple *geo_lat_tuple = dict_find(received, AM_GEO_LAT);
   if (geo_lat_tuple) {
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "Rx Lat %d", (int)geo_lat_tuple->value->int32);
     setting_geo_lat = geo_lat_tuple->value->int32;
   }
   Tuple *geo_lon_tuple = dict_find(received, AM_GEO_LON);
   if (geo_lon_tuple) {
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "Rx Lon %d", (int)geo_lon_tuple->value->int32);
     setting_geo_lon = geo_lon_tuple->value->int32;
   }
 
@@ -350,14 +337,12 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
     if (setting_geo_name) free(setting_geo_name);
     setting_geo_name = malloc(geo_name_tuple->length);
     memcpy(setting_geo_name, geo_name_tuple->value->cstring, geo_name_tuple->length);
-    // APP_LOG(APP_LOG_LEVEL_DEBUG, "Rx geoname %s", setting_geo_name);
   }
 
   settings_fresh = true;
   calculate_qibla_north_offset();
   persist_settings();
 
-  // Ack to JS app so it stops spamming us
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
   dict_write_uint8(iter, AM_ACK, 1);
