@@ -22,11 +22,13 @@ async function putPin(pin: TimelinePin, timelineToken: string): Promise<void> {
 
 /**
  * Fetch timeline pins from backend and push each to the Rebble timeline.
+ * @param onSuccess - optional callback when both fetch and all pin posts succeed.
  */
 export function fetchTimelineAndPushPins(
   apiHost: string,
   userToken: string,
-  timelineToken: string
+  timelineToken: string,
+  onSuccess?: () => void
 ): void {
   if (!apiHost || !userToken || !timelineToken) {
     console.log('fetchTimelineAndPushPins: missing apiHost, userToken, or timelineToken');
@@ -37,7 +39,7 @@ export function fetchTimelineAndPushPins(
 
   const xhr = new XMLHttpRequest();
   xhr.open('GET', url);
-  xhr.onload = () => {
+  xhr.onload = async () => {
     if (xhr.status !== 200) {
       console.log('Timeline fetch failed: ' + xhr.status);
       return;
@@ -50,8 +52,15 @@ export function fetchTimelineAndPushPins(
       console.log('Timeline parse error', e);
       return;
     }
-    console.log('Timeline pins:', list);
-    list.forEach((pin: TimelinePin) => putPin(pin, timelineToken));
+    console.log('Timeline pins:', list.length);
+    try {
+      for (const pin of list) {
+        await putPin(pin, timelineToken);
+      }
+      onSuccess?.();
+    } catch (e) {
+      console.log('Pin post failed', e);
+    }
   };
   xhr.onerror = () => {
     console.log('Timeline fetch network error');

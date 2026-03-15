@@ -11,13 +11,80 @@ declare const Pebble: {
 const TRIG_MAX_ANGLE = 65536;
 let geo_update_timer: ReturnType<typeof setInterval> | undefined;
 let geo_pending = false;
-let geo_pos: { coords: { latitude: number; longitude: number } } | undefined;
-let timeline_token: string | undefined;
-let did_subscribe = false;
+let subscribed = false;
 
 const api_host = 'https://pebble-qibla-www-production.up.railway.app';
 
-const am_send_ok = (): void => {};
+const LAST_FETCH_TIME_KEY = 'qibla_last_fetch_time';
+const TIMELINE_TOKEN_KEY = 'qibla_timeline_token';
+const GEO_POS_KEY = 'qibla_geo_pos';
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Clear all data phone-side for this watch.
+ */
+const deleteAll = () => {
+  localStorage.clear();
+  console.log('Cleared localStorage');
+};
+
+function getLastFetchTime(): number | null {
+  try {
+    const s = localStorage.getItem(LAST_FETCH_TIME_KEY);
+    return s != null ? parseInt(s, 10) : null;
+  } catch (_) { }
+  return null;
+}
+
+function setLastFetchTime(): void {
+  try {
+    localStorage.setItem(LAST_FETCH_TIME_KEY, String(Date.now()));
+  } catch (_) { }
+}
+
+function setTimelineToken(token: string): void {
+  try {
+    localStorage.setItem(TIMELINE_TOKEN_KEY, token);
+  } catch (_) { }
+}
+
+function getTimelineToken(): string | undefined {
+  try {
+    const s = localStorage.getItem(TIMELINE_TOKEN_KEY);
+    return s != null ? s : undefined;
+  } catch (_) { }
+  return undefined;
+}
+
+function getGeoPos(): { coords: { latitude: number; longitude: number } } | undefined {
+  try {
+    const s = localStorage.getItem(GEO_POS_KEY);
+    return s != null ? JSON.parse(s) : undefined;
+  } catch (_) { }
+  return undefined;
+}
+
+function setGeoPos(pos: { coords: { latitude: number; longitude: number } }): void {
+  try {
+    localStorage.setItem(GEO_POS_KEY, JSON.stringify(pos));
+  } catch (_) { }
+}
+
+/** Call fetch only when app connects if last successful fetch was at least one day ago (or never). */
+function fetchTimeline(): void {
+  const timeline_token = getTimelineToken();
+  if (!timeline_token) return;
+  const last = getLastFetchTime();
+  const now = Date.now();
+  if (last != null && now - last < ONE_DAY_MS) {
+    console.log('Skipping fetch - last success was less than one day ago');
+    return;
+  }
+  fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), timeline_token, setLastFetchTime);
+}
+
+const am_send_ok = (): void => { };
 const am_send_fail = (e: { message: string }): void => {
   console.log('AM send fail', e.message);
 };
@@ -28,11 +95,12 @@ const geo_error = (err: { code: number; message: string }): void => {
 };
 
 function timeline_subscribe(): void {
-  if (!geo_pos || (!timeline_token && Pebble.getTimelineToken)) {
+  console.log('Timeline subscribe', getGeoPos(), getTimelineToken());
+  const geo_pos = getGeoPos();
+  const timeline_token = getTimelineToken();
+  if (!geo_pos || !timeline_token) {
     return;
   }
-  if (did_subscribe) return;
-  did_subscribe = true;
   const req = new XMLHttpRequest();
   req.open('POST', api_host + '/subscribe', true);
   req.onload = () => {
@@ -43,6 +111,7 @@ function timeline_subscribe(): void {
         if (loc) {
           Pebble.sendAppMessage({ AM_GEO_NAME: loc }, am_send_ok, am_send_fail);
         }
+        subscribed = true;
       } else {
         console.error('Error subscribing to timeline ' + req.responseText);
       }
@@ -55,7 +124,7 @@ function timeline_subscribe(): void {
       location_lon: geo_pos!.coords.longitude,
       tz_offset: new Date().getTimezoneOffset(),
       user_token: Pebble.getAccountToken(),
-      timeline_token: timeline_token!,
+      timeline_token: timeline_token,
     })
   );
 }
@@ -63,8 +132,7 @@ function timeline_subscribe(): void {
 function push_geo_keys(pos: { coords: { latitude: number; longitude: number } }): void {
   console.log('Geo request ok');
   geo_pending = false;
-  geo_pos = pos;
-  timeline_subscribe();
+  setGeoPos(pos);
   Pebble.sendAppMessage(
     {
       AM_GEO_LAT: Math.round((pos.coords.latitude * TRIG_MAX_ANGLE) / 360),
@@ -86,6 +154,7 @@ function request_geo(): void {
 }
 
 function app_startup(): void {
+  // deleteAll();
   console.log('JS started');
   geo_update_timer = setInterval(request_geo, 1000);
   request_geo();
@@ -94,16 +163,9 @@ function app_startup(): void {
 function watchapp_alive(e: { payload?: Record<string, unknown> }): void {
   console.log('Watchapp is alive');
   if (geo_update_timer) clearInterval(geo_update_timer);
+  fetchTimeline();
   const dict = e.payload;
   console.log('appmessage: ' + JSON.stringify(dict));
-  try {
-    if (dict && (dict as { PUSH_PIN?: unknown }).PUSH_PIN && typeof (window as unknown as { handlePushTimelinePin?: (d: Record<string, unknown>) => void }).handlePushTimelinePin === 'function') {
-      (window as unknown as { handlePushTimelinePin: (d: Record<string, unknown>) => void }).handlePushTimelinePin(dict);
-    }
-  } catch (err) {
-    console.log('Failed to handle message');
-    console.log(err);
-  }
 }
 
 function show_config(): void {
@@ -118,10 +180,10 @@ if (Pebble.getTimelineToken) {
   console.log('Getting timeline token');
   Pebble.getTimelineToken(
     (token: string) => {
-      timeline_token = token;
-      console.log('Timeline token callback', timeline_token);
+      setTimelineToken(token);
+      console.log('Timeline token callback', getTimelineToken());
       timeline_subscribe();
-      fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), timeline_token);
+      fetchTimeline();
     },
     (error: unknown) => {
       console.log('Error getting timeline token', error);
