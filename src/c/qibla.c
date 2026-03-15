@@ -327,7 +327,6 @@ static void down_button_handler(ClickRecognizerRef recognizer, void *context) {
 
 void click_config_provider(Window *window) {
   window_raw_click_subscribe(BUTTON_ID_SELECT, centre_button_down, centre_button_up, NULL);
-  window_single_click_subscribe(BUTTON_ID_DOWN, down_button_handler);
   window_single_repeating_click_subscribe(BUTTON_ID_SELECT, 1000, down_button_handler);
 }
 
