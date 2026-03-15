@@ -11,7 +11,6 @@ declare const Pebble: {
 const TRIG_MAX_ANGLE = 65536;
 let geo_update_timer: ReturnType<typeof setInterval> | undefined;
 let geo_pending = false;
-let subscribed = false;
 
 const api_host = 'https://pebble-qibla-www-production.up.railway.app';
 
@@ -111,7 +110,6 @@ function timeline_subscribe(): void {
         if (loc) {
           Pebble.sendAppMessage({ AM_GEO_NAME: loc }, am_send_ok, am_send_fail);
         }
-        subscribed = true;
       } else {
         console.error('Error subscribing to timeline ' + req.responseText);
       }
@@ -160,11 +158,20 @@ function app_startup(): void {
   request_geo();
 }
 
-function watchapp_alive(e: { payload?: Record<string, unknown> }): void {
+async function watchapp_alive(e: { payload?: Record<string, unknown> }): Promise<void> {
   console.log('Watchapp is alive');
   if (geo_update_timer) clearInterval(geo_update_timer);
   fetchTimeline();
   const dict = e.payload;
+  try {
+    if(dict) {
+      console.log('dict', dict);
+      if (dict["4"]) await deleteAll();
+    }
+  } catch (e) {
+    console.log('Failed to handle message');
+    console.log(e);
+  }
   console.log('appmessage: ' + JSON.stringify(dict));
 }
 

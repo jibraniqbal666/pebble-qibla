@@ -1,7 +1,7 @@
 {
   "name": "pebble-qibla",
   "author": "MakeAwesomeHappen",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "private": true,
   "keywords": ["pebble-app"],
   "pebble": {
@@ -23,7 +23,7 @@
         { "type": "png", "name": "IMAGE_KAABA_MENUICON", "file": "images/kaaba_icon.png", "menuIcon": true }
       ]
     },
-    "messageKeys": ["AM_GEO_LAT", "AM_GEO_LON", "AM_GEO_NAME", "AM_ACK", "PUSH_PIN"]
+    "messageKeys": ["AM_GEO_LAT", "AM_GEO_LON", "AM_GEO_NAME", "AM_ACK", "AM_CLEAR_CACHE", "PUSH_PIN"]
   },
   "scripts": {
     "build": "pkts build"

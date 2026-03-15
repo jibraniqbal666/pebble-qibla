@@ -1,6 +1,10 @@
 #include <pebble.h>
 
 static Window *window;
+static Window *menu_window;
+static Window *confirm_window;
+static SimpleMenuLayer *menu_layer;
+static SimpleMenuLayer *confirm_menu_layer;
 static GBitmap *kaaba_bmp_white;
 static GBitmap *kaaba_bmp_black;
 
@@ -8,10 +12,11 @@ static GColor foreground_colour;
 static GColor background_colour;
 
 enum AMKeys {
-  AM_GEO_LAT=1,
-  AM_GEO_LON=2,
-  AM_GEO_NAME=3,
-  AM_ACK=255
+  AM_GEO_LAT = 1,
+  AM_GEO_LON = 2,
+  AM_GEO_NAME = 3,
+  AM_CLEAR_CACHE = 4,
+  AM_ACK = 255
 };
 
 #define GEO_NAME_LENGTH 64
@@ -259,8 +264,71 @@ void centre_button_up(void* unused, void* ctx) {
   layer_mark_dirty(window_get_root_layer(window));
 }
 
+static void clear_confirm_yes(int index, void *context) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) == APP_MSG_OK) {
+    dict_write_uint8(iter, AM_CLEAR_CACHE, 1);
+    app_message_outbox_send();
+  }
+  window_stack_remove(confirm_window, true);
+  window_stack_remove(menu_window, true);
+}
+
+static void clear_confirm_cancel(int index, void *context) {
+  window_stack_remove(confirm_window, true);
+}
+
+static const SimpleMenuItem s_confirm_items[] = {
+  { .title = "Yes, clear", .callback = clear_confirm_yes },
+  { .title = "Cancel", .callback = clear_confirm_cancel }
+};
+static const SimpleMenuSection s_confirm_sections[] = {
+  { .title = "Clear cache?", .items = s_confirm_items, .num_items = ARRAY_LENGTH(s_confirm_items) }
+};
+
+static void clear_cache_selected(int index, void *context) {
+  window_stack_push(confirm_window, true);
+}
+
+static const SimpleMenuItem s_menu_items[] = {
+  { .title = "Clear cache", .callback = clear_cache_selected }
+};
+static const SimpleMenuSection s_menu_sections[] = {
+  { .title = NULL, .items = s_menu_items, .num_items = ARRAY_LENGTH(s_menu_items) }
+};
+
+static void menu_window_load(Window *w) {
+  Layer *window_layer = window_get_root_layer(w);
+  GRect bounds = layer_get_bounds(window_layer);
+  menu_layer = simple_menu_layer_create(bounds, w, s_menu_sections, ARRAY_LENGTH(s_menu_sections), NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(menu_layer));
+}
+
+static void menu_window_unload(Window *w) {
+  simple_menu_layer_destroy(menu_layer);
+  menu_layer = NULL;
+}
+
+static void confirm_window_load(Window *w) {
+  Layer *window_layer = window_get_root_layer(w);
+  GRect bounds = layer_get_bounds(window_layer);
+  confirm_menu_layer = simple_menu_layer_create(bounds, w, s_confirm_sections, ARRAY_LENGTH(s_confirm_sections), NULL);
+  layer_add_child(window_layer, simple_menu_layer_get_layer(confirm_menu_layer));
+}
+
+static void confirm_window_unload(Window *w) {
+  simple_menu_layer_destroy(confirm_menu_layer);
+  confirm_menu_layer = NULL;
+}
+
+static void down_button_handler(ClickRecognizerRef recognizer, void *context) {
+  window_stack_push(menu_window, true);
+}
+
 void click_config_provider(Window *window) {
   window_raw_click_subscribe(BUTTON_ID_SELECT, centre_button_down, centre_button_up, NULL);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_button_handler);
+  window_single_repeating_click_subscribe(BUTTON_ID_SELECT, 1000, down_button_handler);
 }
 
 static void window_load(Window *window) {
@@ -369,11 +437,32 @@ static void init(void) {
     .load = window_load,
     .unload = window_unload,
   });
+
+  menu_window = window_create();
+  window_set_window_handlers(menu_window, (WindowHandlers) {
+    .load = menu_window_load,
+    .unload = menu_window_unload,
+  });
+  
+  confirm_window = window_create();
+  window_set_window_handlers(confirm_window, (WindowHandlers) {
+    .load = confirm_window_load,
+    .unload = confirm_window_unload,
+  });
+
   const bool animated = true;
   window_stack_push(window, animated);
 }
 
 static void deinit(void) {
+  if (confirm_window) {
+    window_destroy(confirm_window);
+    confirm_window = NULL;
+  }
+  if (menu_window) {
+    window_destroy(menu_window);
+    menu_window = NULL;
+  }
   window_destroy(window);
 }
 
