@@ -166,7 +166,7 @@ async function watchapp_alive(e: { payload?: Record<string, unknown> }): Promise
   try {
     if(dict) {
       console.log('dict', dict);
-      if (dict["4"]) await deleteAll();
+      if (dict["AM_CLEAR_CACHE"]) await deleteAll();
     }
   } catch (e) {
     console.log('Failed to handle message');
