@@ -83,6 +83,17 @@ function fetchTimeline(): void {
   fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), timeline_token, setLastFetchTime);
 }
 
+/** Daily wakeup: always fetch (bypasses one-day throttle). */
+function fetchTimelineFromWakeup(): void {
+  const timeline_token = getTimelineToken();
+  if (!timeline_token) {
+    console.log('Wakeup fetch skipped - no timeline token');
+    return;
+  }
+  console.log('Timeline fetch from wakeup');
+  fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), timeline_token, setLastFetchTime);
+}
+
 const am_send_ok = (): void => { };
 const am_send_fail = (e: { message: string }): void => {
   console.log('AM send fail', e.message);
@@ -164,9 +175,10 @@ async function watchapp_alive(e: { payload?: Record<string, unknown> }): Promise
   fetchTimeline();
   const dict = e.payload;
   try {
-    if(dict) {
+    if (dict) {
       console.log('dict', dict);
-      if (dict["AM_CLEAR_CACHE"]) await deleteAll();
+      if (dict['AM_CLEAR_CACHE']) await deleteAll();
+      if (dict['AM_WAKEUP_FETCH']) fetchTimelineFromWakeup();
     }
   } catch (e) {
     console.log('Failed to handle message');

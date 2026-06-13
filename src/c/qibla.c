@@ -16,8 +16,13 @@ enum AMKeys {
   AM_GEO_LON = 2,
   AM_GEO_NAME = 3,
   AM_CLEAR_CACHE = 4,
+  AM_WAKEUP_FETCH = 6,
   AM_ACK = 255
 };
+
+#define WAKEUP_COOKIE_FETCH 1
+#define WAKEUP_FETCH_COUNT 3
+#define WAKEUP_FIRST_OFFSET_SEC 45
 
 #define GEO_NAME_LENGTH 64
 
@@ -439,12 +444,53 @@ static void start_whining_about_freshness(void* unused) {
   dont_whine_about_settings_freshness = false;
 }
 
+static void send_wakeup_fetch_signal(void) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) return;
+  dict_write_uint8(iter, AM_WAKEUP_FETCH, 1);
+  app_message_outbox_send();
+}
+
+static void schedule_fetch_wakeups(void) {
+  wakeup_cancel_all();
+  time_t now = time(NULL);
+  for (int i = 0; i < WAKEUP_FETCH_COUNT; i++) {
+    time_t ts = now + WAKEUP_FIRST_OFFSET_SEC + (time_t)((i + 1) * SECONDS_PER_DAY);
+    WakeupId id = wakeup_schedule(ts, WAKEUP_COOKIE_FETCH, true);
+    if (id < 0) {
+      APP_LOG(APP_LOG_LEVEL_WARNING, "wakeup_schedule i=%d failed: %d", i, (int)id);
+    }
+  }
+}
+
+static void wakeup_handler(WakeupId id, int32_t cookie) {
+  (void)id;
+  (void)cookie;
+  send_wakeup_fetch_signal();
+  schedule_fetch_wakeups();
+}
+
+static void wakeup_fetch_deferred_cb(void *data) {
+  (void)data;
+  send_wakeup_fetch_signal();
+}
+
 static void init(void) {
 
   load_settings();
   app_message_register_inbox_received(in_received_handler);
   app_message_register_inbox_dropped(in_dropped_handler);
   app_message_open(128, 128);
+
+  if (launch_reason() == APP_LAUNCH_WAKEUP) {
+    WakeupId wid = 0;
+    int32_t cookie = 0;
+    if (wakeup_get_launch_event(&wid, &cookie) && cookie == WAKEUP_COOKIE_FETCH) {
+      app_timer_register(800, wakeup_fetch_deferred_cb, NULL);
+    }
+  }
+  wakeup_service_subscribe(wakeup_handler);
+  schedule_fetch_wakeups();
 
   app_timer_register(1500, start_whining_about_freshness, NULL);
 
