@@ -1,23 +1,13 @@
 /** Timeline API root that coreapp will respond to */
 const API_URL_ROOT = 'https://timeline-api.rebble.io';
 
-async function putPin(pin: TimelinePin, timelineToken: string): Promise<void> {
+async function putPin(pin: TimelinePin): Promise<void> {
   try {
     PebbleTS.insertTimelinePin(pin);
     return Promise.resolve();
   } catch (e) {
     console.log(e);
   }
-  const url = API_URL_ROOT + '/v1/user/pins/' + pin.id;
-  await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onload = resolve;
-    xhr.onerror = reject;
-    xhr.open('PUT', url);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.setRequestHeader('X-User-Token', timelineToken);
-    xhr.send(JSON.stringify(pin));
-  });
 }
 
 /**
@@ -27,11 +17,10 @@ async function putPin(pin: TimelinePin, timelineToken: string): Promise<void> {
 export function fetchTimelineAndPushPins(
   apiHost: string,
   userToken: string,
-  timelineToken: string,
   onSuccess?: () => void
 ): void {
-  if (!apiHost || !userToken || !timelineToken) {
-    console.log('fetchTimelineAndPushPins: missing apiHost, userToken, or timelineToken');
+  if (!apiHost || !userToken) {
+    console.log('fetchTimelineAndPushPins: missing apiHost or userToken');
     return;
   }
   const url = apiHost + '/timeline/' + encodeURIComponent(userToken);
@@ -55,7 +44,7 @@ export function fetchTimelineAndPushPins(
     console.log('Timeline pins:', list.length);
     try {
       for (const pin of list) {
-        await putPin(pin, timelineToken);
+        await putPin(pin);
       }
       onSuccess?.();
     } catch (e) {
