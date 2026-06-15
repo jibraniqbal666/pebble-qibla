@@ -71,16 +71,18 @@ function setGeoPos(pos: { coords: { latitude: number; longitude: number } }): vo
 }
 
 /** Call fetch only when app connects if last successful fetch was at least one day ago (or never). */
-function fetchTimeline(): void {
-  const timeline_token = getTimelineToken();
-  if (!timeline_token) return;
-  const last = getLastFetchTime();
-  const now = Date.now();
-  if (last != null && now - last < ONE_DAY_MS) {
-    console.log('Skipping fetch - last success was less than one day ago');
-    return;
+function fetchTimeline(force = false): void {
+  if (!force) {
+    const last = getLastFetchTime();
+    const now = Date.now();
+    if (last != null && now - last < ONE_DAY_MS) {
+      console.log('Skipping fetch - last success was less than one day ago');
+      return;
+    }
+  } else {
+    console.log('Fetching timeline after settings saved');
   }
-  fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), timeline_token, setLastFetchTime);
+  fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), setLastFetchTime);
 }
 
 const am_send_ok = (): void => { };
@@ -179,9 +181,15 @@ function show_config(): void {
   Pebble.openURL(api_host + '/settings/' + Pebble.getAccountToken());
 }
 
+function config_closed(): void {
+  console.log('Settings webview closed');
+  fetchTimeline(true);
+}
+
 Pebble.addEventListener('ready', app_startup);
 Pebble.addEventListener('appmessage', watchapp_alive);
 Pebble.addEventListener('showConfiguration', show_config);
+Pebble.addEventListener('webviewclosed', config_closed);
 
 if (Pebble.getTimelineToken) {
   console.log('Getting timeline token');

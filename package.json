@@ -1,7 +1,7 @@
 {
   "name": "pebble-qibla",
   "author": "MakeAwesomeHappen",
-  "version": "2.10.0",
+  "version": "2.11.0",
   "private": true,
   "keywords": [
     "pebble-app"
