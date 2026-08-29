@@ -82,7 +82,12 @@ function fetchTimeline(force = false): void {
   } else {
     console.log('Fetching timeline after settings saved');
   }
-  fetchTimelineAndPushPins(api_host, Pebble.getAccountToken(), setLastFetchTime);
+  fetchTimelineAndPushPins(
+    api_host,
+    Pebble.getAccountToken(),
+    setLastFetchTime,
+    (msg) => Pebble.sendAppMessage(msg, am_send_ok, am_send_fail)
+  );
 }
 
 const am_send_ok = (): void => { };

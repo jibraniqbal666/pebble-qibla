@@ -16,6 +16,7 @@ enum AMKeys {
   AM_GEO_LON = 2,
   AM_GEO_NAME = 3,
   AM_CLEAR_CACHE = 4,
+  AM_SETUP_NEEDED = 5,
   AM_ACK = 255
 };
 
@@ -34,6 +35,7 @@ static bool settings_fresh = false;
 static bool compass_calibrate = false;
 
 static bool show_geo_name = false;
+static bool setup_needed = false;
 
 static const CompassHeading compass_event_hysteresis = TRIG_MAX_ANGLE/90;
 static const int TRIG_MAX_RATIO_SQRT = 256;
@@ -153,7 +155,9 @@ static void draw_indicators(Layer* layer, GContext* ctx) {
   graphics_draw_bitmap_in_rect(ctx, kaaba_bmp_black, GRect(bounds.size.w/2 - kaaba_width/2, bounds.size.h/2 - kaaba_height/2, kaaba_width, kaaba_height));
 
   char* note = NULL;
-  if (!settings_fresh && !dont_whine_about_settings_freshness) {
+  if (setup_needed) {
+    note = "Open Pebble app > Settings to set location";
+  } else if (!settings_fresh && !dont_whine_about_settings_freshness) {
     note = "No Phone Connection";
   } else if (compass_calibrate) {
     if (battery_state_service_peek().is_plugged) {
@@ -420,7 +424,15 @@ static void in_received_handler(DictionaryIterator *received, void *context) {
     // APP_LOG(APP_LOG_LEVEL_DEBUG, "Rx geoname %s", setting_geo_name);
   }
   
+  Tuple *setup_tuple = dict_find(received, AM_SETUP_NEEDED);
+  if (setup_tuple && setup_tuple->value->uint8) {
+    setup_needed = true;
+    layer_mark_dirty(window_get_root_layer(window));
+    return;
+  }
+
   settings_fresh = true;
+  setup_needed = false;
   calculate_qibla_north_offset();
   persist_settings();
 

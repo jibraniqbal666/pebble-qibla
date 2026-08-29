@@ -17,7 +17,8 @@ async function putPin(pin: TimelinePin): Promise<void> {
 export function fetchTimelineAndPushPins(
   apiHost: string,
   userToken: string,
-  onSuccess?: () => void
+  onSuccess?: () => void,
+  sendMessage?: (msg: Record<string, number | string>) => void
 ): void {
   if (!apiHost || !userToken) {
     console.log('fetchTimelineAndPushPins: missing apiHost or userToken');
@@ -31,6 +32,9 @@ export function fetchTimelineAndPushPins(
   xhr.onload = async () => {
     if (xhr.status !== 200) {
       console.log('Timeline fetch failed: ' + xhr.status);
+      if (xhr.status === 404 && sendMessage) {
+        sendMessage({ AM_SETUP_NEEDED: 1 });
+      }
       return;
     }
     let list: TimelinePin[];
